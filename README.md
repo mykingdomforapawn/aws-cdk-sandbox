@@ -16,3 +16,13 @@ It is a [Maven](https://maven.apache.org/) based project, so you can open this p
  * `cdk docs`        open CDK documentation
 
 Enjoy!
+
+# erstmal iam policy
+## cf stack mit der policie aufsetzen (bis jetzt nur create policie)
+aws-cdk-sandbox % aws iam create-policy --policy-name CloudformationExecutionPolicy --policy-document file://.aws/CloudformationExecutionPolicy.json
+
+# user identifizieren und arn raussuchen
+
+#   bpptstrap
+## bootstrap 
+cdk bootstrap --cloudformation-execution-policies arn:aws:iam::972962482622:policy/CloudformationExecutionPolicy --trust arn:aws:iam::972962482622:user/ludwig_dev
