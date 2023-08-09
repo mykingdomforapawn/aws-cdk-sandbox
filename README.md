@@ -26,3 +26,9 @@ aws-cdk-sandbox % aws iam create-policy --policy-name CloudformationExecutionPol
 #   bpptstrap
 ## bootstrap 
 cdk bootstrap --cloudformation-execution-policies arn:aws:iam::972962482622:policy/CloudformationExecutionPolicy --trust arn:aws:iam::972962482622:user/ludwig_dev
+    "Deploys the CDK Toolkit staging stack"
+
+cdk synth "Synthesizes and prints the CloudFormation template for one or more specified stacks"
+cdk diff "Compares the specified stack and its dependencies with the deployed stacks or a local CloudFormation template"
+cdk cdk deploy StackName "Deploys one or more specified stacks"
+cdk destroy StackName "Destroys one or more specified stacks"

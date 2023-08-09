@@ -10,7 +10,7 @@ public class AwsCdkSandboxApp {
     public static void main(final String[] args) {
         App app = new App();
 
-        new AwsCdkSandboxStack(app, "AwsCdkSandboxStack", StackProps.builder()
+        //new AwsCdkSandboxStack(app, "AwsCdkSandboxStack", StackProps.builder()
                 // If you don't specify 'env', this stack will be environment-agnostic.
                 // Account/Region-dependent features and context lookups will not work,
                 // but a single synthesized template can be deployed anywhere.
@@ -34,7 +34,9 @@ public class AwsCdkSandboxApp {
                 */
 
                 // For more information, see https://docs.aws.amazon.com/cdk/latest/guide/environments.html
-                .build());
+        //        .build());
+
+        new NetworkSandboxStack(app, "NetworkSandboxStack", StackProps.builder().build());  
 
         app.synth();
     }
