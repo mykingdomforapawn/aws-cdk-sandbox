@@ -10,8 +10,10 @@ import software.amazon.awscdk.StackProps;
 import software.amazon.awscdk.services.ec2.*;
 import software.amazon.awscdk.services.kms.*;
 import software.constructs.Construct;
-import software.constructs.IConstruct;
 import software.amazon.awscdk.services.rds.*;
+import software.amazon.awscdk.services.lambda.*;
+import software.amazon.awscdk.services.lambda.Runtime;
+import software.amazon.awscdk.services.iam.*;
 
 public class DatabaseSandboxStack extends Stack {
     
@@ -20,18 +22,21 @@ public class DatabaseSandboxStack extends Stack {
 
         Vpc vpc = createVpc(); //nacls, securitygroups
         SubnetGroup subnetGroup = createSubnetGroup(vpc);
-        SecurityGroup securityGroup = createSecurityGroup(vpc);
+        SecurityGroup lambdaSecurityGroup = createLambdaSecurityGroup(vpc);
+        SecurityGroup dbSecurityGroup = createDbSecurityGroup(vpc, lambdaSecurityGroup);
         IClusterEngine clusterEngine = defineClusterEngine();
         ParameterGroup parameterGroup = createParameterGroup(clusterEngine);
         Key key = createKey();
-        DatabaseCluster databaseCluster = createDatabaseCluster(vpc, subnetGroup, securityGroup, parameterGroup, clusterEngine, key);
+        DatabaseCluster databaseCluster = createDatabaseCluster(vpc, subnetGroup, dbSecurityGroup, parameterGroup, clusterEngine, key);
+        Role lambdaExecutionRole = createLambdaExecutionRole();
+        Function lambdaFunction = createLambdaFunction(vpc, lambdaExecutionRole, lambdaSecurityGroup);
         }
 
     private Vpc createVpc() {
         return Vpc.Builder.create(this, "vpc")
                 .vpcName("DatabaseSandboxVpc")
                 .maxAzs(2)
-                .createInternetGateway(false)
+                .createInternetGateway(true)
                 .natGateways(0)
                 .restrictDefaultSecurityGroup(true)
                 .subnetConfiguration(
@@ -48,7 +53,7 @@ public class DatabaseSandboxStack extends Stack {
                         .build()))
                 .build();
     }
-     
+    
     private SubnetGroup createSubnetGroup (IVpc vpc) {
         return SubnetGroup.Builder.create(this, "subnet-group")
                 .description("Subnet group for database cluster.")
@@ -62,18 +67,26 @@ public class DatabaseSandboxStack extends Stack {
                 .build();
     }
     
-    private SecurityGroup createSecurityGroup(IVpc vpc){
-        SecurityGroup securityGroup =  SecurityGroup.Builder.create(this, "security-group")
-            .securityGroupName("DatabaseSandboxSecurityGroup")
+    private SecurityGroup createDbSecurityGroup (IVpc vpc, ISecurityGroup lambdaSecurityGroup) {
+        SecurityGroup securityGroup =  SecurityGroup.Builder.create(this, "db-security-group")
+            .securityGroupName("DatabaseSecurityGroup")
             .allowAllOutbound(false)
             .description("Security group for database cluster.")
             .vpc(vpc)
             .build();
 
-        securityGroup.addIngressRule(Peer.anyIpv4(), Port.tcp(22), "Allow SSH access.");
-        securityGroup.addIngressRule(Peer.anyIpv4(), Port.tcp(80), "Allow HTTP access.");
+        securityGroup.addIngressRule(lambdaSecurityGroup, Port.tcp(5432), "Allow PostgreSQL traffic.");
         
         return securityGroup;
+    }
+
+    private SecurityGroup createLambdaSecurityGroup (IVpc vpc) {
+        return SecurityGroup.Builder.create(this, "lambda-security-group")
+            .securityGroupName("LambdaSecurityGroup")
+            .allowAllOutbound(true)
+            .description("Security group for lambda function.")
+            .vpc(vpc)
+            .build();
     }
 
     private Key createKey() {
@@ -131,29 +144,47 @@ public class DatabaseSandboxStack extends Stack {
                 .serverlessV2MinCapacity(0.5)
                 .serverlessV2MaxCapacity(2)
                 .storageType(DBClusterStorageType.AURORA_IOPT1)
-                .writer(ClusterInstance.serverlessV2("writer-instance",
+                .writer(ClusterInstance.serverlessV2("writer",
                         ServerlessV2ClusterInstanceProps.builder()
-                            .instanceIdentifier("writer_instance")
-                            .publiclyAccessible(true)
+                            .instanceIdentifier("writer-instance")
+                            .publiclyAccessible(false)
                             .autoMinorVersionUpgrade(true)
                             .allowMajorVersionUpgrade(true)
                             .enablePerformanceInsights(false)
                             .build()))
-                .readers(List.of(ClusterInstance.serverlessV2("reader-instance",
+                /*            
+                .readers(List.of(ClusterInstance.serverlessV2("reader",
                             ServerlessV2ClusterInstanceProps.builder()
                                 .instanceIdentifier("reader-instance")
-                                .publiclyAccessible(true)
+                                .publiclyAccessible(false)
                                 .autoMinorVersionUpgrade(true)
                                 .allowMajorVersionUpgrade(true)
                                 .enablePerformanceInsights(false)
                                 .scaleWithWriter(true)
                                 .build())))
+                */ 
+                .build();
+    }
+
+    private Role createLambdaExecutionRole() {
+        return Role.Builder.create(this, "execution-role")
+                .assumedBy(new ServicePrincipal("lambda.amazonaws.com"))
+                .managedPolicies(List.of(
+                    ManagedPolicy.fromAwsManagedPolicyName("AmazonRDSFullAccess"), 
+                    ManagedPolicy.fromAwsManagedPolicyName("service-role/AWSLambdaVPCAccessExecutionRole")))
+                .build();
+    }
+
+    private Function createLambdaFunction(IVpc vpc, IRole lambdaExecutionRole, ISecurityGroup securityGroup) {
+        return Function.Builder.create(this, "lambda-function")
+                .runtime(Runtime.PYTHON_3_11)
+                .code(Code.fromAsset("functions"))
+                .handler("execute_sql_statement.lambda_handler")
+                .vpc(vpc)
+                .vpcSubnets(SubnetSelection.builder().subnetType(SubnetType.PUBLIC).build())
+                .securityGroups(List.of(securityGroup))
+                .allowPublicSubnet(true)
+                .role(lambdaExecutionRole)
                 .build();
     }
 }
-            
-            
-            
-            
-            
-            

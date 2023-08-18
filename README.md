@@ -32,3 +32,22 @@ cdk synth "Synthesizes and prints the CloudFormation template for one or more sp
 cdk diff "Compares the specified stack and its dependencies with the deployed stacks or a local CloudFormation template"
 cdk cdk deploy StackName "Deploys one or more specified stacks"
 cdk destroy StackName "Destroys one or more specified stacks"
+
+
+
+##database stack
+mitpgadmin verbinden auf db und test queries ausführen
+
+lambda erstellen mit https://www.youtube.com/watch?v=W-tzoGYMfTA
+    im vpc 
+rolle erstelen mit rds full access
+richtige lanbda bauen (schwieriger als gedacht https://www.youtube.com/watch?v=NGteAkN2WYc )
+test queries ausführen
+
+stack destroyen, publich access raus nehmen, neu testen nur mit lambda
+
+done
+
+
+## iam auth in neuem projekt ausprobieren
+https://www.youtube.com/watch?v=kGTAcj_zI3o
