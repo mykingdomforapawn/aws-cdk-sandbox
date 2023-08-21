@@ -41,12 +41,18 @@ mitpgadmin verbinden auf db und test queries ausführen
 lambda erstellen mit https://www.youtube.com/watch?v=W-tzoGYMfTA
     im vpc 
 rolle erstelen mit rds full access
-richtige lanbda bauen (schwieriger als gedacht https://www.youtube.com/watch?v=NGteAkN2WYc )
-test queries ausführen
+richtige lanbda bauen 
+    psycog2 einbinden (aus externem repo)
+    kurze erklärung, warum
+https://www.youtube.com/watch?v=NGteAkN2WYc 
+https://github.com/jkehler/awslambda-psycopg2
 
-stack destroyen, publich access raus nehmen, neu testen nur mit lambda
-
-done
+!! hier weiter
+    - künstlich erstellte iam policy für kms ins cdk einfügen
+    - alte policy löschen
+    - lambda so schreiben, dass der secret string ordentlich verwendet wird
+    - db zugriff verünftig bauen
+    - projekt abschließen
 
 
 ## iam auth in neuem projekt ausprobieren

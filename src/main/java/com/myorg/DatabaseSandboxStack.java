@@ -16,20 +16,24 @@ import software.amazon.awscdk.services.lambda.Runtime;
 import software.amazon.awscdk.services.iam.*;
 
 public class DatabaseSandboxStack extends Stack {
-    
+
     public DatabaseSandboxStack(final Construct scope, final String id, final StackProps props) {
         super(scope, id, props);
 
-        Vpc vpc = createVpc(); //nacls, securitygroups
+        Vpc vpc = createVpc();
         SubnetGroup subnetGroup = createSubnetGroup(vpc);
+        SecurityGroup vpcEpSecurityGroup = createVpcEpSecurityGroup(vpc);
         SecurityGroup lambdaSecurityGroup = createLambdaSecurityGroup(vpc);
-        SecurityGroup dbSecurityGroup = createDbSecurityGroup(vpc, lambdaSecurityGroup);
+        SecurityGroup dbSecurityGroup = createDbSecurityGroup(vpc);
+        connectSecurityGroups(vpcEpSecurityGroup, lambdaSecurityGroup, dbSecurityGroup);
+        createVpcEndpoints(vpc, vpcEpSecurityGroup);
         IClusterEngine clusterEngine = defineClusterEngine();
         ParameterGroup parameterGroup = createParameterGroup(clusterEngine);
-        Key key = createKey();
-        DatabaseCluster databaseCluster = createDatabaseCluster(vpc, subnetGroup, dbSecurityGroup, parameterGroup, clusterEngine, key);
         Role lambdaExecutionRole = createLambdaExecutionRole();
-        Function lambdaFunction = createLambdaFunction(vpc, lambdaExecutionRole, lambdaSecurityGroup);
+        Key key = createKey(lambdaExecutionRole);
+        Credentials credentials = createCredentials(key);
+        DatabaseCluster databaseCluster = createDatabaseCluster(vpc, subnetGroup, dbSecurityGroup, parameterGroup, clusterEngine, key, credentials);
+        Function lambdaFunction = createLambdaFunction(vpc, lambdaExecutionRole, lambdaSecurityGroup, databaseCluster);
         }
 
     private Vpc createVpc() {
@@ -53,7 +57,7 @@ public class DatabaseSandboxStack extends Stack {
                         .build()))
                 .build();
     }
-    
+
     private SubnetGroup createSubnetGroup (IVpc vpc) {
         return SubnetGroup.Builder.create(this, "subnet-group")
                 .description("Subnet group for database cluster.")
@@ -66,34 +70,72 @@ public class DatabaseSandboxStack extends Stack {
                         .build())
                 .build();
     }
-    
-    private SecurityGroup createDbSecurityGroup (IVpc vpc, ISecurityGroup lambdaSecurityGroup) {
-        SecurityGroup securityGroup =  SecurityGroup.Builder.create(this, "db-security-group")
-            .securityGroupName("DatabaseSecurityGroup")
-            .allowAllOutbound(false)
-            .description("Security group for database cluster.")
-            .vpc(vpc)
-            .build();
 
-        securityGroup.addIngressRule(lambdaSecurityGroup, Port.tcp(5432), "Allow PostgreSQL traffic.");
-        
-        return securityGroup;
+    private SecurityGroup createVpcEpSecurityGroup(IVpc vpc) {
+        return SecurityGroup.Builder.create(this, "vpc-ep-security-group")
+                .securityGroupName("VpcEpSecurityGroup")
+                .vpc(vpc)
+                .allowAllOutbound(false)
+                .description("Security group for VPC endpoints.")
+                .build();
     }
 
     private SecurityGroup createLambdaSecurityGroup (IVpc vpc) {
         return SecurityGroup.Builder.create(this, "lambda-security-group")
-            .securityGroupName("LambdaSecurityGroup")
-            .allowAllOutbound(true)
-            .description("Security group for lambda function.")
-            .vpc(vpc)
-            .build();
+                .securityGroupName("LambdaSecurityGroup")
+                .allowAllOutbound(true)
+                .description("Security group for lambda function.")
+                .vpc(vpc)
+                .build();
     }
 
-    private Key createKey() {
+    private SecurityGroup createDbSecurityGroup (IVpc vpc) {
+        return SecurityGroup.Builder.create(this, "db-security-group")
+                .securityGroupName("DatabaseSecurityGroup")
+                .allowAllOutbound(false)
+                .description("Security group for database cluster.")
+                .vpc(vpc)
+                .build();
+    }
+
+    private void connectSecurityGroups(ISecurityGroup vpcEpSecurityGroup, ISecurityGroup lambdaSecurityGroup, ISecurityGroup dbSecurityGroup) {
+        dbSecurityGroup.addIngressRule(lambdaSecurityGroup, Port.tcp(5432), "Allow PostgreSQL traffic.");
+        vpcEpSecurityGroup.addIngressRule(lambdaSecurityGroup, Port.allTcp(), "Allow access to VPC endpoints.");
+    }
+
+    private void createVpcEndpoints(Vpc vpc, ISecurityGroup securityGroup) {
+        vpc.addInterfaceEndpoint("kms-endpoint", InterfaceVpcEndpointOptions.builder()
+                .service(InterfaceVpcEndpointAwsService.KMS)
+                .subnets(SubnetSelection.builder()
+                        .subnetType(SubnetType.PUBLIC)
+                        .build())
+                .securityGroups(List.of(securityGroup))
+                .build());
+
+                vpc.addInterfaceEndpoint("sm-endpoint", InterfaceVpcEndpointOptions.builder()
+                .service(InterfaceVpcEndpointAwsService.SECRETS_MANAGER)
+                .subnets(SubnetSelection.builder()
+                        .subnetType(SubnetType.PUBLIC)
+                        .build())
+                .securityGroups(List.of(securityGroup))
+                .build());
+    }
+
+    private Key createKey(IRole lambdaExecutionRole) {
+        PolicyDocument policyDocument = PolicyDocument.Builder.create()
+         .statements(List.of(PolicyStatement.Builder.create()
+                 .actions(List.of("kms:Decrypt"))
+                 .principals(List.of(lambdaExecutionRole))
+                 .resources(List.of("*"))
+                 .effect(Effect.ALLOW)
+                 .build()))
+         .build();
+        
         return Key.Builder.create(this, "key")
                 .enableKeyRotation(true)
                 .enabled(true)
                 .removalPolicy(RemovalPolicy.DESTROY)
+                .policy(policyDocument)
                 .build();
     }
 
@@ -114,8 +156,16 @@ public class DatabaseSandboxStack extends Stack {
             Map.entry("lc_time", "en_US.UTF-8")))
             .build();
     }
+
+    private Credentials createCredentials(IKey key) {
+        return Credentials.fromUsername("SandboxDatabaseAdmin",
+                    CredentialsFromUsernameOptions.builder()
+                    .secretName("SandboxDatabaseSecret")
+                    .encryptionKey(key)    
+                    .build());
+    }
  
-    private DatabaseCluster createDatabaseCluster(IVpc vpc, ISubnetGroup subnetGroup, ISecurityGroup securityGroup, IParameterGroup parameterGroup, IClusterEngine clusterEngine, IKey key) {
+    private DatabaseCluster createDatabaseCluster(IVpc vpc, ISubnetGroup subnetGroup, ISecurityGroup securityGroup, IParameterGroup parameterGroup, IClusterEngine clusterEngine, IKey key, Credentials credentials) {
         return DatabaseCluster.Builder.create(this, "database-cluster")
                 .clusterIdentifier("database-sandbox-cluster")
                 .engine(clusterEngine)
@@ -123,11 +173,7 @@ public class DatabaseSandboxStack extends Stack {
                 .subnetGroup(subnetGroup)
                 .securityGroups(List.of(securityGroup))
                 .defaultDatabaseName("DatabaseSandboxInstance")
-                .credentials(Credentials.fromUsername("SandboxDatabaseAdmin",
-                    CredentialsFromUsernameOptions.builder()
-                    .secretName("SandboxDatabaseSecret")
-                    .encryptionKey(key)    
-                    .build()))
+                .credentials(credentials)
                 .storageEncrypted(true)    
                 .storageEncryptionKey(key)
                 .parameterGroup(parameterGroup)
@@ -171,13 +217,15 @@ public class DatabaseSandboxStack extends Stack {
                 .assumedBy(new ServicePrincipal("lambda.amazonaws.com"))
                 .managedPolicies(List.of(
                     ManagedPolicy.fromAwsManagedPolicyName("AmazonRDSFullAccess"), 
-                    ManagedPolicy.fromAwsManagedPolicyName("service-role/AWSLambdaVPCAccessExecutionRole")))
+                    ManagedPolicy.fromAwsManagedPolicyName("service-role/AWSLambdaVPCAccessExecutionRole"),
+                    ManagedPolicy.fromAwsManagedPolicyName("SecretsManagerReadWrite"))
+                    )
                 .build();
     }
 
-    private Function createLambdaFunction(IVpc vpc, IRole lambdaExecutionRole, ISecurityGroup securityGroup) {
+    private Function createLambdaFunction(IVpc vpc, IRole lambdaExecutionRole, ISecurityGroup securityGroup, DatabaseCluster databaseCluster) {
         return Function.Builder.create(this, "lambda-function")
-                .runtime(Runtime.PYTHON_3_11)
+                .runtime(Runtime.PYTHON_3_9)
                 .code(Code.fromAsset("functions"))
                 .handler("execute_sql_statement.lambda_handler")
                 .vpc(vpc)
@@ -185,6 +233,12 @@ public class DatabaseSandboxStack extends Stack {
                 .securityGroups(List.of(securityGroup))
                 .allowPublicSubnet(true)
                 .role(lambdaExecutionRole)
+                .environment(
+                    Map.of(
+                        "HOST", databaseCluster.getClusterEndpoint().getHostname(),
+                        "DATABASE", "DatabaseSandboxInstance",
+                        "SECRET_NAME", "SandboxDatabaseSecret"
+                    ))
                 .build();
     }
 }
