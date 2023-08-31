@@ -34,7 +34,7 @@ public class AwsCdkSandboxApp {
                 // For more information, see https://docs.aws.amazon.com/cdk/latest/guide/environments.html
         //        .build());
 
-        // new NetworkSandboxStack(app, "NetworkSandboxStack", StackProps.builder().build());  
+        new NetworkSandboxStack(app, "NetworkSandboxStack", StackProps.builder().build());  
 
         new DatabaseSandboxStack(app, "DatabaseSandboxStack", StackProps.builder().build());
 

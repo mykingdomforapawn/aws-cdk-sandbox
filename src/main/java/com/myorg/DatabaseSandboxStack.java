@@ -122,13 +122,24 @@ public class DatabaseSandboxStack extends Stack {
     }
 
     private Key createKey(IRole lambdaExecutionRole) {
+        
+        
         PolicyDocument policyDocument = PolicyDocument.Builder.create()
-         .statements(List.of(PolicyStatement.Builder.create()
-                 .actions(List.of("kms:Decrypt"))
-                 .principals(List.of(lambdaExecutionRole))
-                 .resources(List.of("*"))
-                 .effect(Effect.ALLOW)
-                 .build()))
+         .statements(List.of(
+            PolicyStatement.Builder.create()
+                .sid("Allow usage of the key.")
+                .actions(List.of("kms:Decrypt"))
+                .principals(List.of(lambdaExecutionRole))
+                .resources(List.of("*"))
+                .effect(Effect.ALLOW)
+                .build(),
+            PolicyStatement.Builder.create()
+                .sid("Allow administration of the key.")
+                .actions(List.of("kms:*"))
+                .principals(List.of(new AnyPrincipal()))
+                .resources(List.of("*"))
+                .effect(Effect.ALLOW)
+                .build()))
          .build();
         
         return Key.Builder.create(this, "key")
@@ -236,7 +247,7 @@ public class DatabaseSandboxStack extends Stack {
                 .environment(
                     Map.of(
                         "HOST", databaseCluster.getClusterEndpoint().getHostname(),
-                        "DATABASE", "DatabaseSandboxInstance",
+                        "DATABASE_NAME", "DatabaseSandboxInstance",
                         "SECRET_NAME", "SandboxDatabaseSecret"
                     ))
                 .build();
