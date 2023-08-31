@@ -1,37 +1,51 @@
-# Welcome to your CDK Java project!
+# aws-cdk-sandbox
 
-This is a blank project for CDK development with Java.
+> This project is part of my software architecture journey and more specifically the cloud platforms path. See my [software-architecture-journey](https://github.com/mykingdomforapawn/software-architecture-journey) repository for more details.
 
-The `cdk.json` file tells the CDK Toolkit how to execute your app.
+This collection of small projects is designed to explore and experiment with different concepts in the world of AWS Cloud Development Kit (CDK) using the Java programming language.
 
-It is a [Maven](https://maven.apache.org/) based project, so you can open this project with any Maven compatible Java IDE to build and run tests.
+---
 
-## Useful commands
+## Table of contents:
 
- * `mvn package`     compile and run tests
- * `cdk ls`          list all stacks in the app
- * `cdk synth`       emits the synthesized CloudFormation template
- * `cdk deploy`      deploy this stack to your default AWS account/region
- * `cdk diff`        compare deployed stack with current state
- * `cdk docs`        open CDK documentation
+- [Bootstrapping](#bootstrapping)
+- [Stack lifecycle](#stack-lifecycle)
+- [Stack overview](#stack-overview)
 
-Enjoy!
+---
 
-# erstmal iam policy
-## cf stack mit der policie aufsetzen (bis jetzt nur create policie)
-aws-cdk-sandbox % aws iam create-policy --policy-name CloudformationExecutionPolicy --policy-document file://.aws/CloudformationExecutionPolicy.json
+## Bootstrapping
 
-# user identifizieren und arn raussuchen
+Have a look at the [official AWS documentation](https://docs.aws.amazon.com/cdk/v2/guide/bootstrapping.html) to get more details on the bootstrapping process in general. The following steps are some specifications to get this sandbox off the ground.
 
-#   bpptstrap
-## bootstrap 
-cdk bootstrap --cloudformation-execution-policies arn:aws:iam::972962482622:policy/CloudformationExecutionPolicy --trust arn:aws:iam::972962482622:user/ludwig_dev
-    "Deploys the CDK Toolkit staging stack"
+- Configure your CLI to interact with AWS: [official AWS documentation](https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-configure.html)
+- Create a policy that Cloudformation will use during deployments: `aws iam create-policy --policy-name CloudformationExecutionPolicy --policy-document file://policies/CloudformationExecutionPolicy.json`
 
-cdk synth "Synthesizes and prints the CloudFormation template for one or more specified stacks"
-cdk diff "Compares the specified stack and its dependencies with the deployed stacks or a local CloudFormation template"
-cdk cdk deploy StackName "Deploys one or more specified stacks"
-cdk destroy StackName "Destroys one or more specified stacks"
+- Get the policy arn from the generated output or the management console
+- Get the user or role arn that you use to interact with AWS
+- Run the bootstrapping command: `cdk bootstrap --cloudformation-execution-policies <policy arn> --trust <user or role arn>`
+
+---
+
+## Stack lifecycle
+Have a look at the [official AWS documentation](https://docs.aws.amazon.com/cdk/v2/guide/work-with.html) to get more details on how to work with cdk in general. The following commands can be used to work with any stack in this repository.
+
+- `cdk ls` list all stacks in the app
+- `cdk synth <stack name>` emits the synthesized CloudFormation template
+- `cdk diff <stack name>` compare deployed stack with current state`
+- `cdk diff <stack name>` deploy this stack to your default AWS account/region
+- `cdk destroy <stack name>` delete the current stack
+
+## Stack overview
+Each stack will be concisely outlined to provide a better understanding of its scope and purpose. Additionally, a visual representation to offer a clearer perspective on the created resources within the infrastructure is included.
+
+### NetworkSandboxStack
+
+![Diagram](diagrams/diagram_NetworkSandboxStack.drawio.png)
+
+### DatabaseSandboxStack
+
+![Diagram](diagrams/diagram_DatabaseSandboxStack.drawio.png)
 
 
 
