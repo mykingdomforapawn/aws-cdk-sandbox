@@ -33,7 +33,7 @@ public class DatabaseSandboxStack extends Stack {
         Key key = createKey(lambdaExecutionRole);
         Credentials credentials = createCredentials(key);
         DatabaseCluster databaseCluster = createDatabaseCluster(vpc, subnetGroup, dbSecurityGroup, parameterGroup, clusterEngine, key, credentials);
-        Function lambdaFunction = createLambdaFunction(vpc, lambdaExecutionRole, lambdaSecurityGroup, databaseCluster);
+        createLambdaFunction(vpc, lambdaExecutionRole, lambdaSecurityGroup, databaseCluster);
         }
 
     private Vpc createVpc() {
