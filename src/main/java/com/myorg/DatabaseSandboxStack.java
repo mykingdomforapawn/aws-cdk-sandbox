@@ -122,8 +122,6 @@ public class DatabaseSandboxStack extends Stack {
     }
 
     private Key createKey(IRole lambdaExecutionRole) {
-        
-        
         PolicyDocument policyDocument = PolicyDocument.Builder.create()
          .statements(List.of(
             PolicyStatement.Builder.create()
