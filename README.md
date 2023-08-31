@@ -46,6 +46,7 @@ This stack creates a basic network setup for AWS resources, serving as a basic i
 ### DatabaseSandboxStack
 This stack deploys a serverless Amazon Aurora database cluster. However, because the database resides in a private subnet and is not publicly accessible, it incorporates a Lambda function within the same Virtual Private Cloud (VPC) to execute SQL statements. This combination of serverless Aurora and Lambda creates a secure and versatile setup that can be used to explore and gain experience with cloud-based relational databases.
 ![Diagram](diagrams/diagram_DatabaseSandboxStack.drawio.png)
+
 Resources used: 
 - https://www.youtube.com/watch?v=W-tzoGYMfTA
 - https://www.youtube.com/watch?v=NGteAkN2WYc 
